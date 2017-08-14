@@ -78,8 +78,10 @@ for i in np.arange(1, len(longrun.index)):
     # if today is hold
     if signal == 1 and bs == 'buy':
         n = capital/price
+    # if today is buy
     elif signal == 1 and bs == '':
         capital = n * price
+    # if today is sell/close
     elif signal == 0 and bs == 'sell':
         capital = n * price
         n = 0
