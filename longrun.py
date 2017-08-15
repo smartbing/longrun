@@ -4,11 +4,11 @@ import datetime
 import json
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib
+#import matplotlib.pyplot as plt
+#import matplotlib
 import util
-from pandas_datareader import data, wb  # Testing of datareader package
-matplotlib.style.use('ggplot')
+#from pandas_datareader import data, wb  # Testing of datareader package
+#matplotlib.style.use('ggplot')
 
 # Initial Data Setup
 data_path = 'C:/Users/Bing/Projects/longrun/data'

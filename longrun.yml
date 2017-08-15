@@ -1,0 +1,11 @@
+name: longrun
+dependencies:
+- python=3.6
+- pandas=0.20.1
+- click=6.7
+- simplejson=3.10.0
+- matplotlib=1.5.3
+- pip:
+  - bumpversion==0.5.3
+  - pytest==3.1.1
+  - pandas-datareader==0.5.0
