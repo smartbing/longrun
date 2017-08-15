@@ -8,6 +8,6 @@ def calc_port_drawdown(data, window):
     daily_drawdown = data/roll_max - 1.0
 
     max_daily_drawdown = pd.rolling_min(daily_drawdown, window, min_periods=1)
-
-    return max_daily_drawdown.min()
+    max_drawdown_idx = max_daily_drawdown.idxmin()
+    return max_drawdown_idx, max_daily_drawdown.min()
 
