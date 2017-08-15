@@ -89,3 +89,6 @@ ENV/
 .ropeproject
 /log
 /.idea
+
+# Data Files
+data/*
