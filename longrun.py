@@ -6,10 +6,12 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib
+import util
+from pandas_datareader import data, wb  # Testing of datareader package
 matplotlib.style.use('ggplot')
 
 # Initial Data Setup
-data_path = 'H:/data'
+data_path = 'C:/Users/Bing/Projects/longrun/data'
 vxv_file = os.path.join(data_path, 'vxv.csv')
 vxmt_file = os.path.join(data_path, 'vxmt.csv')
 xiv_file = os.path.join(data_path, 'xiv.csv')
@@ -46,7 +48,7 @@ longrun['signal'] = np.where((longrun['ma_60']<1) & (longrun['ma_150']<1) & (lon
 
 
 # Get enter/out signal
-idx = np.where(longrun.signal[1:] != longrun.signal[:-1])[0] + 1
+idx = np.where(longrun.signal[1:].values != longrun.signal[:-1].values)[0] + 1
 
 # Get buy/sell cells
 if longrun.signal[0] == 0:
@@ -99,3 +101,7 @@ port_xiv = n_xiv * longrun.xiv
 
 port_df['hold_xiv'] = port_xiv
 
+max_drawdown = util.calc_port_drawdown(port_df.strat, 252)
+
+# Below line to keep for debugging above lines
+port_df.head()
