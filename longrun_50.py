@@ -88,6 +88,16 @@ cash_prev = cash
 port_value = capital + cash
 port = []
 
+# Record strat info
+n_stock = [n_shares]
+cap_list = [capital]
+cash_list = [cash]
+
+# Now shift the underlying price (XIV) backward 1 day to avoid look ahead bias
+longrun.xiv = longrun.xiv.shift(-1)
+longrun.xiv.fillna(method='ffill', inplace=True)
+
+
 # TODO: Update following trading logic to include scenarios for bs_50 signals
 # Compare with jupyter notebook table for logic
 for i in np.arange(1, len(longrun.index)):
@@ -146,12 +156,17 @@ for i in np.arange(1, len(longrun.index)):
     cash_prev = cash
     port_value = cash + capital
     port.append(port_value)
-
+    n_stock.append(n)
+    cap_list.append(capital)
+    cash_list.append(cash)
 
 
 port = [0] + port
 port_df = longrun[['xiv']]
 port_df['strat'] = port
+port_df['n'] = n_stock
+port_df['capital'] = cap_list
+port_df['cash'] = cash_list
 
 n_xiv = 100/longrun.xiv[0]
 port_xiv = n_xiv * longrun.xiv
