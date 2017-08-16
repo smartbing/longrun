@@ -77,10 +77,10 @@ for i in np.arange(1, len(longrun.index)):
     # update today's share and capital from yesterday
     n = n_prev
     capital = capital_prev
-    # if today is hold
+    # if today is buy
     if signal == 1 and bs == 'buy':
         n = capital/price
-    # if today is buy
+    # if today is hold
     elif signal == 1 and bs == '':
         capital = n * price
     # if today is sell/close

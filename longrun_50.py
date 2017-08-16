@@ -79,11 +79,13 @@ longrun.bs_50[buy_50_idx] = 'buy'
 longrun.bs_50[sell_50_idx] = 'sell'
 
 # Start to build the strategy portfolio
-capital = 100
+capital = 0
 n_shares = 0
+cash = 100
 capital_prev = capital
 n_prev = n_shares
-
+cash_prev = cash
+port_value = capital + cash
 port = []
 
 # TODO: Update following trading logic to include scenarios for bs_50 signals
@@ -91,24 +93,61 @@ port = []
 for i in np.arange(1, len(longrun.index)):
     price = longrun.xiv[i]
     signal = longrun.signal[i]
+    signal_50 = longrun.signal_50[i]
     bs = longrun.bs[i]
+    bs_50 = longrun.bs_50[i]
     # update today's share and capital from yesterday
     n = n_prev
     capital = capital_prev
-    # if today is hold
-    if signal == 1 and bs == 'buy':
-        n = capital/price
-    # if today is buy
-    elif signal == 1 and bs == '':
+    cash = cash_prev
+
+    # enter 50% vix from all cash
+    if signal_50 == 1 and bs_50 == 'buy' and bs == '':
+        n = cash * 0.5 / price
         capital = n * price
-    # if today is sell/close
-    elif signal == 0 and bs == 'sell':
+        cash = cash * 0.5
+
+    # Enter 50% into 100% (invest rest of cash into xiv)
+    if signal == 1 and bs == 'buy' and signal_50 == 0 and bs_50 == 'sell':
+        n = n + cash / price
         capital = n * price
+        cash = 0
+
+    # Enter 100% into xiv from all cash
+    if signal == 1 and bs == 'buy' and bs_50 == '':
+        n = cash / price
+        capital = n * price
+        cash = 0
+
+    # Unload 50% xiv from 100%
+    if signal == 0 and bs == 'sell' and bs_50 == 'buy':
+        n = n * 0.5
+        capital = n * price
+        cash = capital
+
+    # Sell all from 50% position or 100%
+    if signal_50 == 0 and bs_50 == 'sell' and bs == '':
+        cash = capital + cash
         n = 0
+        capital = 0
+
+    # Sell all from 100%
+    if signal == 0 and bs == 'sell' and bs_50 == '':
+        cash = capital
+        n = 0
+        capital = 0
+
+    # Hold long position
+    if (signal == 1 and bs == '') or (signal_50 == 1 and bs_50 == ''):
+        capital = n * price
 
     n_prev = n
     capital_prev = capital
-    port.append(capital)
+    cash_prev = cash
+    port_value = cash + capital
+    port.append(port_value)
+
+
 
 port = [0] + port
 port_df = longrun[['xiv']]
