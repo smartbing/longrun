@@ -1,16 +1,20 @@
 #%matplotlib inline
 import os
 import datetime
-import json
+#import json
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import matplotlib
+#import matplotlib.pyplot as plt
+#import matplotlib
 import util
 from pandas_datareader import data, wb  # Testing of datareader package
-matplotlib.style.use('ggplot')
+#matplotlib.style.use('ggplot')
+
 
 # Initial Data Setup
+start_date = '2011-05-01'
+start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
+
 data_path = 'C:/Users/Bing/Projects/longrun/data'
 vxv_file = os.path.join(data_path, 'vxv.csv')
 vxmt_file = os.path.join(data_path, 'vxmt.csv')
@@ -24,11 +28,12 @@ xiv_df = pd.read_csv(xiv_file, index_col=0, parse_dates=[0], date_parser=datepar
 xiv = xiv_df[['Adj Close']]
 vxx = vxx_df[['Adj Close']]
 
+# calc ratios and signals
 data = pd.merge(vxv_df, vxmt_df, how='left', left_index=True, right_index=True)
 data = data.fillna(method='ffill')
 data = data.fillna(value=0)
 
-# Derived signals below
+# Derived vix futures ratio and moving averages below
 ratio = data['VXV'].divide(data['VXMT'])
 ratio.sort_index(axis='index', inplace=True)
 ratio.name = 'ratio'
@@ -38,47 +43,60 @@ ma_60.name = 'ma_60'
 ma_150.name = 'ma_150'
 
 strat_df = pd.concat([ratio, ma_60, ma_150],  axis=1)
+idx = strat_df.isnull().any(axis=1)
+strat_df = strat_df[~idx]
+
 etf = pd.merge(xiv, vxx, how='left', left_index=True, right_index=True)
 etf.columns = ['xiv', 'vxx']
 
 # First strat df with all etf data and ratio
-longrun = pd.merge(etf, strat_df , how='left', left_index=True, right_index=True)
+#longrun = pd.merge(etf, strat_df , how='left', left_index=True, right_index=True)
+
+# Strategy signals can be calculated independent of underlying data first, merge signals with price data later
 # 100% Long signal
-longrun['signal'] = np.where((longrun['ma_60']<1) & (longrun['ma_150']<1) & (longrun['ratio'] < longrun['ma_60']) & (longrun['ratio'] < longrun['ma_150']), 1, 0)
+strat_df['signal'] = np.where((strat_df['ma_60']<1) & (strat_df['ma_150']<1) & (strat_df['ratio'] < strat_df['ma_60']) & (strat_df['ratio'] < strat_df['ma_150']), 1, 0)
 
 # 50% long signal
-longrun['signal_50'] = np.where((longrun['ma_60']<1) & (longrun['ma_150']<1) & (longrun['ratio'] > longrun['ma_60']) & (longrun['ratio'] < longrun['ma_150']), 1, 0)
+strat_df['signal_50'] = np.where((strat_df['ma_60']<1) & (strat_df['ma_150']<1) & (strat_df['ratio'] > strat_df['ma_60']) & (strat_df['ratio'] < strat_df['ma_150']), 1, 0)
 
 
 # Get enter/out signal
-idx = np.where(longrun.signal[1:].values != longrun.signal[:-1].values)[0] + 1
-idx_50 = np.where(longrun.signal_50[1:].values != longrun.signal_50[:-1].values)[0] + 1
+idx = np.where(strat_df.signal[1:].values != strat_df.signal[:-1].values)[0] + 1
+idx_50 = np.where(strat_df.signal_50[1:].values != strat_df.signal_50[:-1].values)[0] + 1
 
 # Get buy/sell cells for 100% Long
-if longrun.signal[0] == 0:
+if strat_df.signal[0] == 0:
     buy_idx = idx[::2]
     sell_idx = idx[1::2]
 else:
     buy_idx = idx[1::2]
     sell_idx = idx[::2]
 
-longrun['bs'] = ''
-longrun.bs[buy_idx] = 'buy'
-longrun.bs[sell_idx] = 'sell'
+strat_df['bs'] = ''
+strat_df.bs[buy_idx] = 'buy'
+strat_df.bs[sell_idx] = 'sell'
 
 # Get buy/sell cells for 50% Long
-if longrun.signal_50[0] == 0:
+if strat_df.signal_50[0] == 0:
     buy_50_idx = idx_50[::2]
     sell_50_idx = idx_50[1::2]
 else:
     buy_50_idx = idx_50[1::2]
     sell_50_idx = idx_50[::2]
 
-longrun['bs_50'] = ''
-longrun.bs_50[buy_50_idx] = 'buy'
-longrun.bs_50[sell_50_idx] = 'sell'
+strat_df['bs_50'] = ''
+strat_df.bs_50[buy_50_idx] = 'buy'
+strat_df.bs_50[sell_50_idx] = 'sell'
 
-# Start to build the strategy portfolio
+# Output strat_df to csv
+strat_df.to_csv(os.path.join(data_path, 'strat_signal.csv'))
+
+# Start to build the longrun strat portfolio with underlying stock/etf
+# First merge stock with strat_df
+longrun = pd.merge(etf, strat_df , how='left', left_index=True, right_index=True)
+etf_name = 'xiv'
+
+# Predefined portfolio variables
 capital = 0
 n_shares = 0
 cash = 100
@@ -86,22 +104,20 @@ capital_prev = capital
 n_prev = n_shares
 cash_prev = cash
 port_value = capital + cash
-port = []
+port = [cash+capital]
 
-# Record strat info
+# Record rebalance variables info
 n_stock = [n_shares]
 cap_list = [capital]
 cash_list = [cash]
 
 # Now shift the underlying price (XIV) backward 1 day to avoid look ahead bias
-longrun.xiv = longrun.xiv.shift(-1)
-longrun.xiv.fillna(method='ffill', inplace=True)
+longrun[etf_name] = longrun[etf_name].shift(-1)
+longrun[etf_name].fillna(method='ffill', inplace=True)
 
-
-# TODO: Update following trading logic to include scenarios for bs_50 signals
-# Compare with jupyter notebook table for logic
+# Below are the trade/rebalance logics for the portfolio strating from trade day
 for i in np.arange(1, len(longrun.index)):
-    price = longrun.xiv[i]
+    price = longrun[etf_name].iloc[i]
     signal = longrun.signal[i]
     signal_50 = longrun.signal_50[i]
     bs = longrun.bs[i]
@@ -160,20 +176,20 @@ for i in np.arange(1, len(longrun.index)):
     cap_list.append(capital)
     cash_list.append(cash)
 
-
-port = [0] + port
+#port = [0] + port
 port_df = longrun[['xiv']]
 port_df['strat'] = port
 port_df['n'] = n_stock
 port_df['capital'] = cap_list
 port_df['cash'] = cash_list
 
-n_xiv = 100/longrun.xiv[0]
-port_xiv = n_xiv * longrun.xiv
+# Buy and hold strategy for underlying stock/etf
+n_etf = 100/longrun[etf_name].iloc[0]
+port_etf = n_etf * longrun[etf_name]
 
-port_df['hold_xiv'] = port_xiv
+port_df['hold_etf'] = port_etf
 
 max_drawdown = util.calc_port_drawdown(port_df.strat, 252)
-
+port_summary = util.get_port_summary(port_df.strat)
 # Below line to keep for debugging above lines
 port_df.head()
