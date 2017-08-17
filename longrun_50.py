@@ -7,26 +7,29 @@ import pandas as pd
 #import matplotlib.pyplot as plt
 #import matplotlib
 import util
-from pandas_datareader import data, wb  # Testing of datareader package
+#from pandas_datareader import data, wb  # Testing of datareader package
 #matplotlib.style.use('ggplot')
 
 
 # Initial Data Setup
-start_date = '2011-05-01'
+start_date = '2015-05-01'
 start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
 
-data_path = 'C:/Users/Bing/Projects/longrun/data'
+data_path = 'H:/data'
 vxv_file = os.path.join(data_path, 'vxv.csv')
 vxmt_file = os.path.join(data_path, 'vxmt.csv')
 xiv_file = os.path.join(data_path, 'xiv.csv')
 vxx_file = os.path.join(data_path, 'vxx.csv')
+svxy_file = os.path.join(data_path, 'svxy.csv')
 dateparse = lambda x: pd.datetime.strptime(x, '%d/%m/%Y')
 vxv_df = pd.read_csv(vxv_file, index_col=0, parse_dates=[0], date_parser=dateparse)
 vxmt_df = pd.read_csv(vxmt_file, index_col=0, parse_dates=[0], date_parser=dateparse)
 vxx_df = pd.read_csv(vxx_file, index_col=0, parse_dates=[0], date_parser=dateparse)
 xiv_df = pd.read_csv(xiv_file, index_col=0, parse_dates=[0], date_parser=dateparse)
+svxy_df = pd.read_csv(svxy_file, index_col=0, parse_dates=[0], date_parser=dateparse)
 xiv = xiv_df[['Adj Close']]
 vxx = vxx_df[['Adj Close']]
+svxy = svxy_df[['Adj Close']]
 
 # calc ratios and signals
 data = pd.merge(vxv_df, vxmt_df, how='left', left_index=True, right_index=True)
@@ -45,9 +48,11 @@ ma_150.name = 'ma_150'
 strat_df = pd.concat([ratio, ma_60, ma_150],  axis=1)
 idx = strat_df.isnull().any(axis=1)
 strat_df = strat_df[~idx]
+strat_df = strat_df[strat_df.index >= start_date]
 
 etf = pd.merge(xiv, vxx, how='left', left_index=True, right_index=True)
-etf.columns = ['xiv', 'vxx']
+etf = pd.merge(etf, svxy, how='left', left_index=True, right_index=True)
+etf.columns = ['xiv', 'vxx', 'svxy']
 
 # First strat df with all etf data and ratio
 #longrun = pd.merge(etf, strat_df , how='left', left_index=True, right_index=True)
@@ -69,7 +74,7 @@ if strat_df.signal[0] == 0:
     buy_idx = idx[::2]
     sell_idx = idx[1::2]
 else:
-    buy_idx = idx[1::2]
+    buy_idx = np.insert(idx[1::2], 0, 0)
     sell_idx = idx[::2]
 
 strat_df['bs'] = ''
@@ -81,7 +86,7 @@ if strat_df.signal_50[0] == 0:
     buy_50_idx = idx_50[::2]
     sell_50_idx = idx_50[1::2]
 else:
-    buy_50_idx = idx_50[1::2]
+    buy_50_idx = np.insert(idx_50[1::2], 0, 0)
     sell_50_idx = idx_50[::2]
 
 strat_df['bs_50'] = ''
@@ -93,8 +98,10 @@ strat_df.to_csv(os.path.join(data_path, 'strat_signal.csv'))
 
 # Start to build the longrun strat portfolio with underlying stock/etf
 # First merge stock with strat_df
-longrun = pd.merge(etf, strat_df , how='left', left_index=True, right_index=True)
+all_data = pd.merge(etf, strat_df , how='left', left_index=True, right_index=True)
+longrun = all_data[all_data.index >= start_date]
 etf_name = 'xiv'
+#etf_name = 'svxy'
 
 # Predefined portfolio variables
 capital = 0
@@ -104,19 +111,19 @@ capital_prev = capital
 n_prev = n_shares
 cash_prev = cash
 port_value = capital + cash
-port = [cash+capital]
+port = []
 
 # Record rebalance variables info
-n_stock = [n_shares]
-cap_list = [capital]
-cash_list = [cash]
+n_stock = []
+cap_list = []
+cash_list = []
 
 # Now shift the underlying price (XIV) backward 1 day to avoid look ahead bias
 longrun[etf_name] = longrun[etf_name].shift(-1)
 longrun[etf_name].fillna(method='ffill', inplace=True)
 
 # Below are the trade/rebalance logics for the portfolio strating from trade day
-for i in np.arange(1, len(longrun.index)):
+for i in np.arange(0, len(longrun.index)):
     price = longrun[etf_name].iloc[i]
     signal = longrun.signal[i]
     signal_50 = longrun.signal_50[i]
