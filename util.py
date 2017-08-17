@@ -18,7 +18,7 @@ def get_port_summary(data):
     total_return = data[-1]/data[0] - 1
     sharpe_ratio = np.sqrt(252) * np.average(daily_ret) / daily_std
 
-    ndays = data.index[-1] - data.index[0]
+    ndays = (data.index[-1] - data.index[0]).days
     nyears = ndays/252
     year_return = np.power(1 + total_return, 1/nyears) - 1
     return {'total_return': total_return, 'yearly_return': year_return, 'yearly_std': annual_std, 'sharpe_ratio': sharpe_ratio}
