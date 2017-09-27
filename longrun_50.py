@@ -188,7 +188,7 @@ for i in np.arange(0, len(longrun.index)):
     cash_list.append(cash)
 
 #port = [0] + port
-port_df = longrun[['xiv']]
+port_df = longrun[[etf_name]]
 port_df['strat'] = port
 port_df['n'] = n_stock
 port_df['capital'] = cap_list
