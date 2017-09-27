@@ -21,15 +21,18 @@ vxmt_file = os.path.join(data_path, 'vxmt.csv')
 xiv_file = os.path.join(data_path, 'xiv.csv')
 vxx_file = os.path.join(data_path, 'vxx.csv')
 svxy_file = os.path.join(data_path, 'svxy.csv')
+hvi_file = os.path.join(data_path, 'svxy.csv')
 dateparse = lambda x: pd.datetime.strptime(x, '%d/%m/%Y')
 vxv_df = pd.read_csv(vxv_file, index_col=0, parse_dates=[0], date_parser=dateparse)
 vxmt_df = pd.read_csv(vxmt_file, index_col=0, parse_dates=[0], date_parser=dateparse)
 vxx_df = pd.read_csv(vxx_file, index_col=0, parse_dates=[0], date_parser=dateparse)
 xiv_df = pd.read_csv(xiv_file, index_col=0, parse_dates=[0], date_parser=dateparse)
 svxy_df = pd.read_csv(svxy_file, index_col=0, parse_dates=[0], date_parser=dateparse)
+hvi_df = pd.read_csv(hvi_file, index_col=0, parse_dates=[0], date_parser=dateparse)
 xiv = xiv_df[['Adj Close']]
 vxx = vxx_df[['Adj Close']]
 svxy = svxy_df[['Adj Close']]
+hvi = hvi_df[['Adj Close']]
 
 # calc ratios and signals
 data = pd.merge(vxv_df, vxmt_df, how='left', left_index=True, right_index=True)
@@ -52,7 +55,8 @@ strat_df = strat_df[strat_df.index >= start_date]
 
 etf = pd.merge(xiv, vxx, how='left', left_index=True, right_index=True)
 etf = pd.merge(etf, svxy, how='left', left_index=True, right_index=True)
-etf.columns = ['xiv', 'vxx', 'svxy']
+etf = pd.merge(etf, hvi, how='left', left_index=True, right_index=True)
+etf.columns = ['xiv', 'vxx', 'svxy', 'hvi']
 
 # First strat df with all etf data and ratio
 #longrun = pd.merge(etf, strat_df , how='left', left_index=True, right_index=True)
@@ -100,7 +104,7 @@ strat_df.to_csv(os.path.join(data_path, 'strat_signal.csv'))
 # First merge stock with strat_df
 all_data = pd.merge(etf, strat_df , how='left', left_index=True, right_index=True)
 longrun = all_data[all_data.index >= start_date]
-etf_name = 'xiv'
+etf_name = 'hvi'
 #etf_name = 'svxy'
 
 # Predefined portfolio variables
